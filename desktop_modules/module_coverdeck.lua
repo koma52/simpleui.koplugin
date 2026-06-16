@@ -269,7 +269,8 @@ end
 -- ---------------------------------------------------------------------------
 
 local function buildRecentFps(ctx)
-    local fps = {}
+    local fps         = {}
+    local show_fin    = showFinished(ctx.pfx or "")
     if ctx.current_fp then
         fps[1] = ctx.current_fp
     end
@@ -278,9 +279,17 @@ local function buildRecentFps(ctx)
         if ctx.current_fp then seen[ctx.current_fp] = true end
         for _i, fp in ipairs(ctx.recent_fps) do
             if not seen[fp] then
-                fps[#fps+1] = fp
-                seen[fp]    = true
-                if #fps >= MAX_RECENT_FPS then break end
+                -- Filter finished books according to this module's own setting.
+                local pd         = ctx.prefetched and ctx.prefetched[fp]
+                local pct        = pd and pd.percent or 0
+                local is_done    = (pct >= 1.0) or
+                                   (type(pd) == "table" and type(pd.summary) == "table"
+                                    and pd.summary.status == "complete")
+                if show_fin or not is_done then
+                    fps[#fps+1] = fp
+                    seen[fp]    = true
+                    if #fps >= MAX_RECENT_FPS then break end
+                end
             end
         end
     end

@@ -1536,13 +1536,10 @@ function HomescreenWidget:_buildCtx()
         if SH then
             if show_c or show_r then
                 local max_recent = 5
-                local show_finished =
-                    (mod_r  and Registry.isEnabled(mod_r,  PFX) and
-                        SUISettings:readSetting(PFX .. "recent_show_finished") == true)
-                    or
-                    (mod_cd and Registry.isEnabled(mod_cd, PFX) and
-                        SUISettings:readSetting(PFX .. "coverdeck_show_finished") == true)
-                self._cached_books_state = SH.prefetchBooks(show_c, show_r, max_recent, show_finished)
+                -- show_finished is no longer computed here: each module
+                -- (module_recent, module_coverdeck) filters finished books
+                -- independently at render time using its own setting.
+                self._cached_books_state = SH.prefetchBooks(show_c, show_r, max_recent)
                 if Config.cover_extraction_pending then
                     self:_scheduleCoverPoll()
                 end
@@ -2493,13 +2490,8 @@ function HomescreenWidget:_refresh(keep_cache, books_only, stats_only)
                             local mod_cd = Registry.get("coverdeck")
                             local show_c = Registry.isEnabled(Registry.get("currently"), PFX)
                             local show_r = (mod_r and Registry.isEnabled(mod_r, PFX)) or (mod_cd and Registry.isEnabled(mod_cd, PFX))
-                            local show_finished = false
-                            if mod_r and Registry.isEnabled(mod_r, PFX) then
-                                show_finished = SUISettings:readSetting(PFX .. "recent_show_finished") == true
-                            elseif mod_cd and Registry.isEnabled(mod_cd, PFX) then
-                                show_finished = SUISettings:readSetting(PFX .. "coverdeck_show_finished") == true
-                            end
-                            local new_bs = SH.prefetchBooks(show_c, show_r, 5, show_finished)
+                            -- show_finished removed: each module filters independently at render time.
+                            local new_bs = SH.prefetchBooks(show_c, show_r, 5)
                             self._cached_books_state = new_bs
                             self._ctx_cache.prefetched = new_bs.prefetched_data
                             self._ctx_cache.current_fp = new_bs.current_fp
