@@ -446,7 +446,7 @@ end
 
 -- Returns true when the screen is in landscape orientation.
 local function _isLandscape()
-    return Screen:getWidth() > Screen:getHeight()
+    return UI.isLandscape()
 end
 
 -- Computes a landscape page step (2 in landscape spread mode, 1 in portrait).
@@ -2010,24 +2010,14 @@ function HomescreenWidget:_updatePage(keep_cache, books_only, stats_only)
         end
     end
 
-    -- Compute landscape scale factor and apply the Config patch.
+    -- Compute landscape scale factor (single source of truth: UI.getLandscapeFactor,
+    -- shared with any other SimpleUI surface that needs the same reduction —
+    -- e.g. SUIWindow) and apply the Config patch.
     -- Declared here (function scope) so the second is_landscape block below can
     -- read it when storing _clock_landscape_factor for the clock tick path.
-    -- In landscape: Screen:getWidth() is the long axis; Screen:getHeight() is the
-    -- short axis, which equals portrait width. This gives us portrait_inner_w
-    -- without any device-specific constants.
-    --   landscape_inner_w = Screen:getWidth()  - 2*SIDE_PAD
-    --   col_w             = floor((landscape_inner_w - PAD) / 2)
-    --   portrait_inner_w  = Screen:getHeight() - 2*SIDE_PAD
-    --   factor            = col_w / portrait_inner_w
-    -- Note: `inner_w` (from _layout_inner_w) is declared after this block, so we
-    -- compute _landscape_inner_w directly from Screen:getWidth() here.
     local _landscape_factor
     if is_landscape then
-        local _landscape_inner_w = Screen:getWidth()  - SIDE_PAD * 2
-        local _portrait_inner_w  = Screen:getHeight() - SIDE_PAD * 2
-        local _col_w_preview     = math.floor((_landscape_inner_w - PAD) / 2)
-        _landscape_factor = _col_w_preview / _portrait_inner_w
+        _landscape_factor = UI.getLandscapeFactor()
         _applyLandscapePatch(_landscape_factor)
     end
 

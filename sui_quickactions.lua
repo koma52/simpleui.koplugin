@@ -44,6 +44,18 @@ local N_ = require("sui_i18n").ngettext
 
 local Config      = require("sui_config")
 local SUISettings = require("sui_store")
+local UI          = require("sui_core")
+
+-- Landscape-aware scaling for the raw pixel/font sizes below that build
+-- SUIWindow modal content directly in this file (icon picker previews, the
+-- Quick Actions "Group" folder dialog, the Recent grid): every screen
+-- builder here uses the ctx.SZ(n) handed to it by SUIWindow itself (single
+-- source of truth, see sui_window.lua) instead of a locally-redeclared
+-- wrapper. QA.buildQARowIcon is the one exception — it's a plain helper, not
+-- a screen builder, so it takes its scale function as an explicit param
+-- (falling back to UI.SZ if ever called without one). Not used by this
+-- file's homescreen-facing helpers (those are scaled via sui_homescreen.lua's
+-- own Config-patch mechanism instead).
 
 local QA = {}
 
@@ -1388,7 +1400,7 @@ function QA.sui_build_qa_icons(plugin, ctx_menu, ctx)
     local Font = require("ui/font")
     local Geom = require("ui/geometry")
     
-    local btn_size = Screen:scaleBySize(36)
+    local btn_size = ctx.SZ(Screen:scaleBySize(36))
     local icon_size = math.floor(btn_size * 0.7)
     local ok_ss, SUIStyle = pcall(require, "sui_style")
     local border_sz = ok_ss and SUIStyle.BORDER_SZ or 1
@@ -1433,7 +1445,7 @@ function QA.sui_build_qa_icons(plugin, ctx_menu, ctx)
         
         return FrameContainer:new{
             dimen      = Geom:new{ w = btn_size, h = btn_size },
-            radius     = Screen:scaleBySize(8),
+            radius     = ctx.SZ(Screen:scaleBySize(8)),
             bordersize = border_sz,
             background = Blitbuffer.COLOR_WHITE,
             color      = Blitbuffer.gray(0.75),
@@ -2720,7 +2732,7 @@ end
 -- glyph / fallback initial, framed square) but sized for inline row use.
 -- ---------------------------------------------------------------------------
 
-function QA.buildQARowIcon(icon_value, fallback_label)
+function QA.buildQARowIcon(icon_value, fallback_label, scale_fn)
     local Blitbuffer     = require("ffi/blitbuffer")
     local FrameContainer = require("ui/widget/container/framecontainer")
     local CenterContainer = require("ui/widget/container/centercontainer")
@@ -2730,7 +2742,10 @@ function QA.buildQARowIcon(icon_value, fallback_label)
     local Geom           = require("ui/geometry")
     local ok_ss, SUIStyle = pcall(require, "sui_style")
 
-    local btn_size  = Screen:scaleBySize(28)
+    -- scale_fn is the caller's ctx.SZ; fall back to UI.SZ (identical value
+    -- during a synchronous SUIWindow build) if ever called without a ctx.
+    local SZ = scale_fn or UI.SZ
+    local btn_size  = SZ(Screen:scaleBySize(28))
     local icon_size = math.floor(btn_size * 0.7)
     local border_sz = ok_ss and SUIStyle.BORDER_SZ or 1
     local is_nerd   = Config.isNerdIcon(icon_value)
@@ -2774,7 +2789,7 @@ function QA.buildQARowIcon(icon_value, fallback_label)
 
     return FrameContainer:new{
         dimen      = Geom:new{ w = btn_size, h = btn_size },
-        radius     = Screen:scaleBySize(6),
+        radius     = SZ(Screen:scaleBySize(6)),
         bordersize = border_sz,
         background = Blitbuffer.COLOR_WHITE,
         color      = Blitbuffer.gray(0.75),
@@ -2847,7 +2862,7 @@ function QA.showQAFolderDialog(qa_id, title, fm, show_unavailable_fn)
 
             if #valid_items > 0 then
                 local inner_w = ctx.inner_w
-                local target_frame_sz = Screen:scaleBySize(70)
+                local target_frame_sz = ctx.SZ(Screen:scaleBySize(70))
                 local cols = math.max(3, math.min(6, math.floor(inner_w / (target_frame_sz * 1.18))))
                 local frame_sz = math.floor((inner_w * 0.86) / cols)
                 local scale = math.max(0.45, math.min(1.4, frame_sz / mqa.FRAME_SZ))
@@ -2856,13 +2871,16 @@ function QA.showQAFolderDialog(qa_id, title, fm, show_unavailable_fn)
                 -- Horizontal gap between tiles within a row, and vertical gap
                 -- above every row (including the first, for breathing room
                 -- under the title bar) plus a trailing one below the last row.
-                local gap_w = Screen:scaleBySize(20)
-                local gap_h = Screen:scaleBySize(20)
+                local gap_w = ctx.SZ(Screen:scaleBySize(20))
+                local gap_h = ctx.SZ(Screen:scaleBySize(20))
                 -- buildQAWidget always reserves its own PAD*2 horizontal
                 -- margin inside the width it's given; add it back here so a
                 -- "tight" row_w below actually yields gap_w between tiles.
-                local ok_core, UI = pcall(require, "sui_core")
-                local pad2 = (ok_core and UI and UI.PAD and UI.PAD * 2) or Screen:scaleBySize(28)
+                -- (UI.PAD is a fixed device-pixel constant, not itself
+                -- landscape-scaled, so it's wrapped in SZ() here to match
+                -- gap_w/gap_h/target_frame_sz above.)
+                local ok_core, UI_local = pcall(require, "sui_core")
+                local pad2 = (ok_core and UI_local and UI_local.PAD and ctx.SZ(UI_local.PAD * 2)) or ctx.SZ(Screen:scaleBySize(28))
 
                 local function on_tap_fn(_mid) runMember(_mid, ctx) end
 
@@ -2900,7 +2918,7 @@ function QA.showQAFolderDialog(qa_id, title, fm, show_unavailable_fn)
             local entry = QA.getEntry(_mid)
             rows[#rows + 1] = {
                 text        = entry.label,
-                left_widget = QA.buildQARowIcon(entry.icon, entry.label),
+                left_widget = QA.buildQARowIcon(entry.icon, entry.label, ctx.SZ),
                 on_tap      = function() runMember(_mid, ctx) end,
             }
         end
@@ -3047,7 +3065,7 @@ local function _recentBuildRootScreen(ctx)
     end
 
     local rows = {}
-    local gap  = Screen:scaleBySize(10)
+    local gap  = ctx.SZ(Screen:scaleBySize(10))
     local cw   = math.floor((inner_w - (RECENT_NUM_COLS - 1) * gap) / RECENT_NUM_COLS)
     local ch   = math.floor(cw * 3 / 2)
 
