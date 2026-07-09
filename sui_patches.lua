@@ -452,11 +452,18 @@ function M.patchFileManagerClass(plugin)
         -- behaviour change.
         local cur_w = Screen:getWidth()
         local cur_h = Screen:getHeight()
+        local cur_gen = UI.getRotationGeneration()
         logger.dbg("simpleui[rotation]: setupLayout call",
             "cur_w=", cur_w, "cur_h=", cur_h,
             "cached_w=", fm_self._navbar_layout_w,
             "cached_h=", fm_self._navbar_layout_h,
-            "will_reuse_navbar_inner=", (fm_self._navbar_inner ~= nil
+            "cur_gen=", cur_gen,
+            "cached_gen=", fm_self._navbar_layout_gen,
+            "will_reuse_navbar_inner_wh_only=", (fm_self._navbar_inner ~= nil
+                and fm_self._navbar_layout_w == cur_w
+                and fm_self._navbar_layout_h == cur_h),
+            "will_reuse_navbar_inner_actual=", (fm_self._navbar_inner ~= nil
+                and fm_self._navbar_layout_gen == cur_gen
                 and fm_self._navbar_layout_w == cur_w
                 and fm_self._navbar_layout_h == cur_h))
 
@@ -488,7 +495,6 @@ function M.patchFileManagerClass(plugin)
         -- confirmado por log de runtime — reverter é remover a comparação de
         -- _navbar_layout_gen e a linha que a atualiza, deixando W x H como
         -- única condição (como era antes).
-        local cur_gen = UI.getRotationGeneration()
         if fm_self._navbar_inner
                 and (fm_self._navbar_layout_gen ~= cur_gen
                      or fm_self._navbar_layout_w ~= cur_w
