@@ -462,7 +462,23 @@ function M.patchFileManagerClass(plugin)
         -- Library). Resultado: nem a cache de dimensões da bottom bar nem o
         -- repaint completo abaixo disparavam, e a bottom bar ficava com
         -- conteúdo desenhado antes dos flips. Comparamos também cur_gen.
-        local _dims_changed = (fm_self._navbar_layout_w ~= cur_w
+        --
+        -- CORREÇÃO (regressão -- confirmado por log real do emulador,
+        -- 12:54:53, sem rotação nenhuma envolvida): _navbar_layout_w/h/gen
+        -- vivem na PRÓPRIA instância fm_self. Ao fechar um livro, o
+        -- FileManager é reconstruído do zero ("Spinning up new FileManager
+        -- instance") -- é uma tabela Lua NOVA, estes três campos começam
+        -- sempre nil. Como `nil ~= numero` é sempre verdadeiro em Lua,
+        -- _dims_changed ficava true em TODA primeira chamada de setupLayout
+        -- de uma instância nova, mesmo sem rotação nenhuma -- disparando o
+        -- repaint completo forçado (CORREÇÃO 2, mais abaixo) e atualizando o
+        -- ecrã inteiro em vez de só os módulos de estatísticas necessários.
+        -- _has_prior_layout distingue "primeira vez que esta instância é
+        -- montada" (nada a invalidar, nada de anormal para corrigir) de
+        -- "já tínhamos W x H/gen guardados e mudaram" (aí sim, forçar).
+        local _has_prior_layout = (fm_self._navbar_layout_w ~= nil)
+        local _dims_changed = _has_prior_layout and (
+            fm_self._navbar_layout_w ~= cur_w
             or fm_self._navbar_layout_h ~= cur_h
             or fm_self._navbar_layout_gen ~= cur_gen)
 
