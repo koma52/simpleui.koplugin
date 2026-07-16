@@ -248,6 +248,35 @@ function M.patchFileManagerClass(plugin)
         })
     end
 
+    -- ---------------------------------------------------------------------
+    -- PocketBook Home Button (class-level, patched once per session).
+    --
+    -- Natively FileManager:onHome() calls file_chooser:goHome()/setHome() —
+    -- it navigates the file browser, never the SimpleUI Homescreen. When the
+    -- "PocketBook Home Button" behaviour setting is on, the hardware Home
+    -- key should always land on the Homescreen, whether pressed from inside
+    -- the reader (see wireReaderHomeKey) or from the file manager. This
+    -- mirrors onSimpleUIGoHomescreen's own outside-the-reader branch, so
+    -- behaviour stays identical to using the "Go to Homescreen" gesture.
+    --
+    -- Class-level like initGesListener above (FileManager instances are
+    -- recreated often); resolves the live plugin via _live_plugin so the
+    -- closure never operates on a stale instance.
+    -- ---------------------------------------------------------------------
+    if not FileManager._simpleui_home_patched and Device:isPocketBook() then
+        FileManager._simpleui_home_patched = true
+        local orig_onHome = FileManager.onHome
+        FileManager.onHome = function(fm_self, ...)
+            if SUISettings:isTrue("simpleui_pb_home_opens_hs") then
+                local plugin_now = _live_plugin or plugin
+                local tabs = Config.loadTabConfig()
+                plugin_now:_navigate("homescreen", fm_self, tabs, false)
+                return true
+            end
+            return orig_onHome(fm_self, ...)
+        end
+    end
+
     if not setup_already_patched then
     FileManager.setupLayout = function(fm_self)
         -- Resolve the live plugin instance rather than relying on the
@@ -1832,6 +1861,7 @@ function M.patchUIManagerShow(plugin)
         if widget.name == "ReaderUI" then
             pcall(M.wireReaderMenuFMTab,    plugin, widget)
             pcall(M.patchReloadDocument,    plugin, widget)
+            pcall(M.wireReaderHomeKey,      plugin, widget)
 
             -- Snapshot before clearing below — both the CoverTransition
             -- check further down and the blocker cleanup need to know
@@ -3767,6 +3797,45 @@ function M.wireReaderMenuFMTab(plugin, readerui)
     menu_ref._simpleui_fm_tab_wrapped = true
 end
 
+-- ---------------------------------------------------------------------------
+-- wireReaderHomeKey
+--
+-- PocketBook only. Natively, ReaderUI:registerKeyEvents() binds the hardware
+-- Home key to onHome(), which closes the reader straight into the file
+-- manager (onClose + showFileManager, no Homescreen). When the "PocketBook
+-- Home Button" behaviour setting is on, we redirect that single
+-- instance-level entry point to our flash-free reader→Homescreen path
+-- instead — the same one used by the "Go to Homescreen" gesture/dispatcher
+-- action — so the hardware button matches Start-with-Homescreen users'
+-- expectations instead of always dropping into the FM.
+--
+-- Scoped to PocketBook: on other platforms the physical/software Home key
+-- already goes where users expect, and the setting itself is hidden from
+-- their menu (see makeBehaviourMenuItems).
+--
+-- via_gesture=true: a hardware button press behaves like a gesture, not a
+-- menu tap — no TouchMenu forceRePaint() follows it, so the async nextTick
+-- path (same as onSimpleUIGoHomescreen) is safe and keeps "gesture_only"
+-- closing-notice mode consistent.
+--
+-- Applied once per ReaderUI instance (guard: _simpleui_home_key_patched).
+-- ---------------------------------------------------------------------------
+function M.wireReaderHomeKey(plugin, readerui)
+    if not (readerui and Device:isPocketBook()) then return end
+    if readerui._simpleui_home_key_patched then return end
+    local orig = readerui.onHome
+    if type(orig) ~= "function" then return end
+
+    readerui.onHome = function(self, ...)
+        if SUISettings:isTrue("simpleui_pb_home_opens_hs") then
+            M.closeReaderToHomescreen(plugin, true)
+            return true
+        end
+        return orig(self, ...)
+    end
+    readerui._simpleui_home_key_patched = true
+end
+
 -- Close the reader and return to the Library (FM at home_dir) with no
 -- Homescreen appearing on top — equivalent to the user closing the reader
 -- when "return to book folder" / "Start with Homescreen" are both off.
@@ -4542,6 +4611,7 @@ function M.installAll(plugin)
     if plugin.ui and plugin.ui.document then
         M.wireReaderMenuFMTab(plugin, plugin.ui)
         M.patchReloadDocument(plugin, plugin.ui)
+        M.wireReaderHomeKey(plugin, plugin.ui)
     end
 end
 
