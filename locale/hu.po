@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: simpleui\n"
 "POT-Creation-Date: 2026-07-17 19:49\n"
-"PO-Revision-Date: 2026-07-19 13:19+0200\n"
+"PO-Revision-Date: 2026-07-19 13:52+0200\n"
 "Last-Translator: Kónya Márton <konyamarci52@proton.me>\n"
 "Language-Team: \n"
 "Language: hu\n"
@@ -4369,19 +4369,19 @@ msgstr "csomag útvonal nincs megadva"
 
 #: sui_stats_windows.lua:2305 sui_stats_windows.lua:2627
 msgid "pages read"
-msgstr "olvasott oldalak"
+msgstr "olvasott oldal"
 
 #: desktop_modules/module_reading_stats.lua:91
 msgid "pages read this month"
-msgstr "olvasott oldalak a hónapban"
+msgstr "olvasott oldal a hónapban"
 
 #: desktop_modules/module_reading_stats.lua:87
 msgid "pages read this week"
-msgstr "olvasott oldalak a héten"
+msgstr "olvasott oldal a héten"
 
 #: desktop_modules/module_reading_stats.lua:85
 msgid "pages read today"
-msgstr "ma olvasott oldalak"
+msgstr "olvasott oldal ma"
 
 #: desktop_modules/module_reading_stats.lua:89
 msgid "pages/day (7 days)"
@@ -4569,7 +4569,7 @@ msgstr[1] "nap olvasva"
 msgid "page read"
 msgid_plural "pages read"
 msgstr[0] "olvasott oldal"
-msgstr[1] "olvasott oldalak"
+msgstr[1] "olvasott oldal"
 
 #~ msgid "Percentage overlay on cover"
 #~ msgstr "Százalék a borítón"
